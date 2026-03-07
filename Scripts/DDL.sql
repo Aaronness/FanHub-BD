@@ -1,3 +1,30 @@
+USE FANHUB;
+GO
+
+-- 1. Tablas de relación de muchos a muchos y detalles específicos (Hijas de tercer nivel)
+DROP TABLE IF EXISTS PublicacionEtiqueta;
+DROP TABLE IF EXISTS UsuarioReaccionPublicacion;
+DROP TABLE IF EXISTS Video;
+DROP TABLE IF EXISTS Texto;
+DROP TABLE IF EXISTS Imagen;
+DROP TABLE IF EXISTS Factura;
+
+-- Tablas que dependen de Creador, Usuario o Publicacion (Hijas de segundo nivel)
+DROP TABLE IF EXISTS Comentario;
+DROP TABLE IF EXISTS Suscripcion;
+DROP TABLE IF EXISTS NivelSuscripcion;
+DROP TABLE IF EXISTS Publicacion;
+DROP TABLE IF EXISTS MetodoPago;
+
+-- Tablas base / principales (Las que no dependen de nadie)
+DROP TABLE IF EXISTS Creador;
+DROP TABLE IF EXISTS Usuario;
+DROP TABLE IF EXISTS Categoria;
+DROP TABLE IF EXISTS TipoReaccion;
+DROP TABLE IF EXISTS Etiqueta;
+GO
+
+-- Creación de Tablas
 
 CREATE TABLE Usuario (
     id INT PRIMARY KEY,
@@ -166,7 +193,7 @@ GO
 CREATE TABLE TipoReaccion (
     id INT IDENTITY(1,1) PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
-    emoji_code VARCHAR(10) NOT NULL
+    emoji_code NVARCHAR(10) NOT NULL
 );
 GO
 
