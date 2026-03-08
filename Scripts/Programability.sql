@@ -1,0 +1,52 @@
+CREATE FUNCTION fn_calcular_impuesto(@monto DECIMAL(10,2))
+RETURNS DECIMAL(10,2)
+AS
+BEGIN
+	DECLARE @impuesto DECIMAL(10,2);
+	SET @impuesto = (16*@monto)/100;
+	RETURN @impuesto;
+END
+GO
+
+CREATE FUNCTION fn_clasificar_ingreso(@monto DECIMAL(10,2))
+RETURNS NVARCHAR(20)
+AS
+BEGIN
+	DECLARE @calificacion NVARCHAR(20);
+	IF @monto > 1000
+		SET @calificacion = 'Diamante';
+	ELSE IF @monto >=500
+		SET @calificacion = 'Oro';
+	ELSE
+		SET @calificacion = 'Plata';
+	RETURN @calificacion;
+END
+GO
+
+CREATE FUNCTION fn_calcular_reputacion(@idCreador INT)
+RETURNS DECIMAL(10,2)
+AS
+BEGIN
+	DECLARE @totalSuscriptores INT = 0;
+	DECLARE @totalReacciones INT = 0;
+	DECLARE @antiguedad INT = 0;
+	DECLARE @reputacion DECIMAL(10,2);
+
+	SELECT @totalSuscriptores = COUNT(DISTINCT(s.idUsuario))
+	FROM NivelSuscripcion as n JOIN Suscripcion as s ON(n.id = s.idNivel)
+	WHERE @idCreador = n.idCreador;
+
+	SELECT @totalReacciones = COUNT(*)
+	FROM UsuarioReaccionPublicacion as urp JOIN Publicacion as p ON(urp.idPublicacion = p.id)
+	WHERE @idCreador = p.idCreador AND urp.fecha_reaccion >= DATEADD(MONTH, -1, GETDATE());
+
+	SELECT @antiguedad = DATEDIFF(MONTH, u.fecha_registro, GETDATE())
+	FROM Creador as c JOIN Usuario as u ON(c.idUsuario = u.id)
+	WHERE @idCreador = c.idUsuario;
+
+	SET @reputacion = (@totalSuscriptores * 0.5) + (@totalReacciones * 0.1) + (@antiguedad * 2);
+	IF @reputacion > 100
+		SET @reputacion = 100
+	RETURN @reputacion;
+END
+GO
