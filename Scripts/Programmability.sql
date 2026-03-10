@@ -139,3 +139,53 @@ BEGIN
 	RETURN @reputacion;
 END
 GO
+
+--TRUGGERS
+
+-- Trigger 1: Auditoría de Precios (Safety)
+
+CREATE TRIGGER tr_auditar_precio_nivel
+ON NivelSuscripcion
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF EXISTS (
+        SELECT 1
+        FROM inserted i
+            JOIN deleted d ON (i.id = d.id)
+        WHERE ABS(i.precio_actual - d.precio_actual) > (d.precio_actual * 0.50)
+    )
+    BEGIN
+        RAISERROR('El cambio de precio supera el 50% del precio anterior. Operación cancelada.', 16, 1);
+        ROLLBACK TRAN;
+    END
+END
+GO
+
+
+-- Trigger 2: Protección de Menores (NSFW)
+
+CREATE TRIGGER tr_proteger_menores_nsfw
+ON Suscripcion
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF EXISTS (
+        SELECT 1
+        FROM inserted i
+            JOIN NivelSuscripcion ns ON (i.idNivel = ns.id)
+            JOIN Creador c ON (ns.idCreador = c.idUsuario)
+            JOIN Usuario u ON (i.idUsuario = u.id)
+        WHERE c.es_nsfw = 1
+          AND DATEADD(YEAR, 18, u.fecha_nacimiento) > CAST(GETDATE() AS DATE)
+    )
+    BEGIN
+        RAISERROR('Contenido restringido por edad.', 16, 1);
+        ROLLBACK TRAN;
+    END
+END
+GO
