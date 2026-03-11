@@ -131,6 +131,40 @@ GROUP BY
         WHEN YEAR(u.fecha_nacimiento) BETWEEN 1981 AND 2000 THEN 'Millennials'
         ELSE 'X'
     END
+-- Consulta 9: Creadores Polémicos
+-- Listar Creadores con un promedio de ratio (Comentarios / Reacciones) > 2.0.
+-- Columnas a mostrar: Nickname, Cantidad Posts Evaluados, Ratio Promedio. 
+
+WITH EstadisticasPorPost AS (
+    SELECT 
+        p.id AS idPublicacion,
+        p.idCreador,
+        CAST(COUNT(DISTINCT c.id) AS DECIMAL(10,2)) AS TotalComentarios,
+        CAST(COUNT(DISTINCT urp.idUsuario) AS DECIMAL(10,2)) AS TotalReacciones
+    FROM Publicacion p
+    LEFT JOIN Comentario c ON p.id = c.idPublicacion
+    LEFT JOIN UsuarioReaccionPublicacion urp ON p.id = urp.idPublicacion
+    GROUP BY p.id, p.idCreador
+),
+RatiosPorPost AS (
+    SELECT idCreador,idPublicacion,
+        -- Si no hay reacciones, el ratio se asume como el total de comentarios 
+        -- para evitar división por cero, o 0 si no hay ninguno.
+        CASE 
+            WHEN TotalReacciones = 0 THEN TotalComentarios 
+            ELSE (TotalComentarios / TotalReacciones) 
+        END AS Ratio
+    FROM EstadisticasPorPost
+)
+SELECT 
+    u.nickname AS Nickname,
+    COUNT(r.idPublicacion) AS [Cantidad Posts Evaluados],
+    CAST(AVG(r.Ratio) AS DECIMAL(10,2)) AS [Ratio Promedio]
+
+FROM RatiosPorPost r JOIN Usuario u ON r.idCreador = u.id
+GROUP BY u.id, u.nickname
+HAVING AVG(r.Ratio) > 2.0
+ORDER BY [Ratio Promedio] DESC;
 
 -- Consulta 10: Ranking de Creadores (Reputación)
 -- Se listan los creadores multimedia (video/imagen) que nunca han publicado contenido nsfw
@@ -166,6 +200,32 @@ WHERE s.estado = 'Activa' AND NOT EXISTS (
       WHERE cm.idUsuario = u.id
   )
 GROUP BY u.nickname;
+
+-- Consulta 12: Tendencias (Tags)
+-- Top 3 etiquetas más usadas el último mes.
+-- Columnas a mostrar: Nombre Etiqueta, Cantidad Publicaciones.
+
+SELECT TOP 3 e.nombre AS [Nombre Etiqueta], COUNT(pe.idPublicacion) AS [Cantidad Publicaciones]
+FROM Etiqueta e
+JOIN PublicacionEtiqueta pe ON e.id = pe.idEtiqueta
+JOIN Publicacion p ON pe.idPublicacion = p.id
+-- Filtro para el último mes (30 días)
+WHERE p.fecha_publicacion >= DATEADD(MONTH, -1, GETDATE())
+GROUP BY e.nombre
+ORDER BY [Cantidad Publicaciones] DESC;
+
+-- Consulta 13: Cobertura Total de Reacciones
+-- Usuarios que han usado todos los tipos de reacción del catálogo.
+-- Columnas a mostrar: Nickname, Total Reacciones Realizadas.
+
+SELECT u.nickname AS Nickname, COUNT(urp.idTipoReaccion) AS [Total Reacciones Realizadas]
+
+FROM Usuario u JOIN UsuarioReaccionPublicacion urp ON u.id = urp.idUsuario
+
+GROUP BY u.id, u.nickname
+HAVING COUNT(DISTINCT urp.idTipoReaccion) = (SELECT COUNT(*) FROM TipoReaccion)
+ORDER BY [Total Reacciones Realizadas] DESC;
+
 
 -- Consulta 14: Reporte de Nómina (Liquidación): 
 -- Generar el listado de pagos a realizar a los creadores correspondiente al mes actual. 
