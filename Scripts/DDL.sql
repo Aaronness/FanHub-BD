@@ -203,7 +203,7 @@ CREATE TABLE UsuarioReaccionPublicacion(
     idTipoReaccion INT NOT NULL,
     fecha_reaccion DATE NOT NULL,
     
-    PRIMARY KEY(idUsuario, idPublicacion, idTipoReaccion),
+    PRIMARY KEY(idUsuario, idPublicacion),
     FOREIGN KEY (idUsuario) REFERENCES Usuario(id),
     FOREIGN KEY (idPublicacion) REFERENCES Publicacion(id),
     FOREIGN KEY (idTipoReaccion) REFERENCES TipoReaccion(id)
