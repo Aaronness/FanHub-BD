@@ -110,3 +110,24 @@ WHERE u.id IN (
 )
 GROUP BY u.nickname
 HAVING SUM(f.monto_total) > 140
+
+
+-- Consulta 8: Generaciones
+
+SELECT
+    CASE
+        WHEN YEAR(u.fecha_nacimiento) > 2000 THEN 'Gen Z'
+        WHEN YEAR(u.fecha_nacimiento) BETWEEN 1981 AND 2000 THEN 'Millennials'
+        ELSE 'X'
+    END AS Generación,
+    COUNT(DISTINCT u.id) AS [Cantidad Usuarios Activos], CAST(SUM(f.monto_total) / COUNT(DISTINCT MONTH(f.fecha_emision)) AS DECIMAL(10,2)) AS [Gasto Promedio Mensual]
+FROM Usuario u
+    JOIN Suscripcion s ON (u.id = s.idUsuario)
+    JOIN Factura f ON (s.id = f.idSuscripcion)
+WHERE u.esta_activo = 1
+GROUP BY
+    CASE
+        WHEN YEAR(u.fecha_nacimiento) > 2000 THEN 'Gen Z'
+        WHEN YEAR(u.fecha_nacimiento) BETWEEN 1981 AND 2000 THEN 'Millennials'
+        ELSE 'X'
+    END
