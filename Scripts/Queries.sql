@@ -131,3 +131,54 @@ GROUP BY
         WHEN YEAR(u.fecha_nacimiento) BETWEEN 1981 AND 2000 THEN 'Millennials'
         ELSE 'X'
     END
+
+-- Consulta 10: Ranking de Creadores (Reputación)
+-- Se listan los creadores multimedia (video/imagen) que nunca han publicado contenido nsfw
+-- Ordenado descendientemente por reputacion y en caso de empate por cantidad de suscriptores
+
+-- CTE para calcular el total de suscriptores por creador multimedia (video/imagen)
+WITH ConteoSuscriptores AS (
+    SELECT ns.idCreador, COUNT(DISTINCT s.idUsuario) AS TotalSuscriptores
+    FROM NivelSuscripcion AS ns JOIN Suscripcion AS s ON ns.id = s.idNivel
+    WHERE s.estado = 'Activa'
+    GROUP BY ns.idCreador
+)
+SELECT u.nickname AS Nickname, ISNULL(cs.TotalSuscriptores, 0) AS TotalSuscriptores, 
+       dbo.fn_calcular_reputacion(c.idUsuario) AS Reputacion
+FROM Creador AS c JOIN Usuario AS u ON c.idUsuario = u.id
+     LEFT JOIN ConteoSuscriptores AS cs ON c.idUsuario = cs.idCreador
+WHERE c.es_nsfw = 0 AND c.idUsuario IN (SELECT idCreador FROM Publicacion WHERE tipo_contenido IN ('VIDEO', 'IMAGEN'))
+ORDER BY Reputacion DESC, TotalSuscriptores DESC -- Se ordena por suscriptores como criterio de desempate
+
+-- Consulta 11: Usuarios "Lurkers": Usuarios con suscripción activa pero sin ninguna interacción (comentario/reacción).
+-- Columnas a mostrar: Nickname, Fecha Última Suscripción, Monto Gastado (Estimado).
+
+SELECT u.nickname AS Nickname, MAX(s.fecha_inicio) AS FechaUltimaSuscripcion, ISNULL(SUM(f.monto_total), 0) AS MontoGastado
+FROM Usuario AS u JOIN Suscripcion AS s ON u.id = s.idUsuario JOIN Factura AS f ON s.id = f.idSuscripcion
+WHERE s.estado = 'Activa' AND NOT EXISTS (
+      SELECT 1 
+      FROM UsuarioReaccionPublicacion urp 
+      WHERE urp.idUsuario = u.id
+  )
+  AND NOT EXISTS (
+      SELECT 1 
+      FROM Comentario cm 
+      WHERE cm.idUsuario = u.id
+  )
+GROUP BY u.nickname;
+
+-- Consulta 14: Reporte de Nómina (Liquidación): 
+-- Generar el listado de pagos a realizar a los creadores correspondiente al mes actual. 
+-- La plataforma cobra una comisión del 20% sobre el total facturado.
+-- Columnas a mostrar: Nombre Banco, Cuenta Bancaria, Beneficiario (Nickname), 
+-- Total Facturado (Bruto), Comisión FanHub, Monto a Transferir (Neto).
+
+SELECT c.banco_nombre AS NombreBanco, c.banco_cuenta AS CuentaBancaria, u.nickname AS Beneficiario, SUM(f.monto_total) AS TotalFacturadoBruto,
+       CAST(SUM(f.monto_total) * 0.20 AS DECIMAL(10,2)) AS ComisionFanHub, 
+       CAST(SUM(f.monto_total) * 0.80 AS DECIMAL(10,2)) AS MontoTransferirNeto
+FROM Usuario AS u JOIN Creador AS c ON u.id = c.idUsuario JOIN NivelSuscripcion AS ns ON c.idUsuario = ns.idCreador
+     JOIN Suscripcion AS s ON ns.id = s.idNivel JOIN Factura AS f ON s.id = f.idSuscripcion
+WHERE s.estado = 'Activa' AND f.fecha_emision >=DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) -- inicio mes actual
+      AND f.fecha_emision <  DATEADD(MONTH, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) -- inicio próximo mes
+GROUP BY c.banco_nombre, c.banco_cuenta, u.nickname
+ORDER BY u.nickname;
